@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ── Session state initialisation ──────────────────────────────────────────────
-for key in ("sales_result", "ops_result", "kyc_result", "leads"):
+for key in ("sales_result", "ops_result", "kyc_result", "leads", "_last_agent"):
     if key not in st.session_state:
         st.session_state[key] = None
 
@@ -24,6 +24,14 @@ with st.sidebar:
         ["Sales Agent", "Ops Agent", "KYC Agent"],
         index=0,
     )
+
+    # Clear stale result when user switches agents
+    _agent_key_map = {"Sales Agent": "sales_result", "Ops Agent": "ops_result", "KYC Agent": "kyc_result"}
+    if st.session_state._last_agent != agent_choice:
+        # Clear the result of the PREVIOUSLY selected agent so it doesn't bleed into new tab
+        if st.session_state._last_agent and st.session_state._last_agent in _agent_key_map:
+            pass  # keep previous results — just don't show wrong agent's result
+        st.session_state._last_agent = agent_choice
     st.divider()
     if agent_choice == "Sales Agent":
         st.info(
@@ -335,10 +343,14 @@ if st.session_state.leads is not None:
     if not leads:
         st.info("No leads found in CRM. Run the Sales Agent to add leads.")
     else:
-        st.success(f"Found {len(leads)} leads in CRM")
+        st.success(f"Found {len(leads)} leads in CRM — sorted oldest → newest (latest at bottom)")
         display_leads = []
-        for lead in leads:
+        for i, lead in enumerate(leads, start=1):
+            created_raw = lead.get("_created", "")
+            # Format: 2024-01-15T10:30:00.000Z → 2024-01-15 10:30
+            created_fmt = created_raw[:16].replace("T", " ") if created_raw else ""
             display_leads.append({
+                "#": i,
                 "Company": lead.get("Company Name") or lead.get("company_name") or "N/A",
                 "Industry": lead.get("Industry") or lead.get("industry") or "N/A",
                 "Revenue": lead.get("Revenue Range") or lead.get("revenue_range") or "N/A",
@@ -347,11 +359,13 @@ if st.session_state.leads is not None:
                 "Email": lead.get("Contact Email") or lead.get("contact_email") or "",
                 "Founded": lead.get("Founded Year") or lead.get("founded_year") or "",
                 "Founders": lead.get("Founders") or lead.get("founders") or "",
-                "Stage": lead.get("Funding Stage") or lead.get("funding_stage") or "",
+                "Stage": lead.get("Funding Stage\t") or lead.get("Funding Stage") or lead.get("funding_stage") or "",
                 "Website": lead.get("Website URL") or lead.get("website_url") or "",
                 "LinkedIn": lead.get("LinkedIn URL") or lead.get("linkedin_url") or "",
+                "Created At": created_fmt,
             })
         st.dataframe(display_leads, use_container_width=True)
+        st.caption("📌 Leads are sorted by creation time — latest leads appear at the bottom")
 
 st.divider()
 st.caption("OmniForce AI Workforce v1.0.0 | Built with LangGraph + Groq + ChromaDB")

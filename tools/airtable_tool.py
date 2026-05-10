@@ -46,9 +46,13 @@ def get_all_leads() -> list:
     print("[Airtable] Fetching all leads")
     try:
         table = _get_table()
+        # Fetch all records without API sorting to prevent 422 Unknown Field error
         records = table.all()
-        leads = [{"id": r["id"], **r["fields"]} for r in records]
-        print(f"[Airtable] Retrieved {len(leads)} leads")
+        # Sort locally in Python using the built-in record metadata 'createdTime'
+        records_sorted = sorted(records, key=lambda x: x.get("createdTime", ""))
+        
+        leads = [{"id": r["id"], "_created": r.get("createdTime", ""), **r["fields"]} for r in records_sorted]
+        print(f"[Airtable] Retrieved {len(leads)} leads (sorted locally oldest to newest)")
         return leads
     except Exception as e:
         error_msg = f"[Airtable] Failed to fetch leads: {str(e)}"

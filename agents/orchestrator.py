@@ -4,8 +4,9 @@ from agents.sales_agent import SalesAgent
 from agents.ops_agent import OpsAgent
 from agents.kyc_agent import KYCAgent
 
-SALES_KEYWORDS = {"lead", "prospect", "crm", "sales", "follow", "find", "research", "email", "chase", "update"}
-OPS_KEYWORDS = {"invoice", "timesheet", "ops", "approve", "report", "summary", "process", "route", "review", "document"}
+SALES_KEYWORDS = {"lead", "prospect", "crm", "sales", "follow", "find", "research", "email", "chase", "update", "company", "companies", "fintech", "startup", "revenue", "outreach"}
+# NOTE: removed 'process','review' — too generic, causes false matches on sales prompts like 'payment processing'
+OPS_KEYWORDS = {"invoice", "timesheet", "ops", "approve", "report", "summary", "route", "document", "anomal", "upload", "pdf"}
 KYC_KEYWORDS = {"kyc", "compliance", "onboard", "verify", "risk", "check", "aml", "due diligence", "new client"}
 
 
@@ -24,7 +25,11 @@ def _router_node(state: WorkflowState) -> WorkflowState:
     task = state.get("task", "").lower()
     print(f"[Orchestrator] Routing task: {task[:80]}")
 
-    agent_type = "sales"
+    # If agent_type was explicitly set (from UI), trust it — skip keyword scoring
+    existing_agent = state.get("agent_type", "")
+    if existing_agent in ("sales", "ops", "kyc"):
+        print(f"[Orchestrator] Using explicit agent override: {existing_agent} (keyword routing skipped)")
+        return {**state, "status": "routing_complete"}
 
     kyc_score = sum(1 for kw in KYC_KEYWORDS if kw in task)
     ops_score = sum(1 for kw in OPS_KEYWORDS if kw in task)
@@ -37,7 +42,7 @@ def _router_node(state: WorkflowState) -> WorkflowState:
     else:
         agent_type = "sales"
 
-    print(f"[Orchestrator] Routing decision: {agent_type} (scores: sales={sales_score}, ops={ops_score}, kyc={kyc_score})")
+    print(f"[Orchestrator] Keyword routing decision: {agent_type} (scores: sales={sales_score}, ops={ops_score}, kyc={kyc_score})")
     return {**state, "agent_type": agent_type, "status": "routing_complete"}
 
 
@@ -127,11 +132,19 @@ def run_workflow(
     instruction: str,
     document_content: str = "",
     client_data: dict = {},
+    explicit_agent: str = "",
 ) -> dict:
     print(f"[Orchestrator] Starting workflow for task: {task[:80]}")
+
+    # If the UI explicitly specifies the agent, skip keyword routing entirely
+    forced_agent = explicit_agent.lower().strip() if explicit_agent else ""
+    if forced_agent in ("sales", "ops", "kyc"):
+        print(f"[Orchestrator] Explicit agent override: {forced_agent} (skipping keyword routing)")
+
     initial_state: WorkflowState = {
         "task": task,
-        "agent_type": "sales",
+        # Pre-set agent_type so router can be overridden below
+        "agent_type": forced_agent if forced_agent in ("sales", "ops", "kyc") else "sales",
         "instruction": instruction,
         "document_content": document_content,
         "client_data": client_data,

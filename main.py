@@ -101,6 +101,7 @@ async def run_agent(request: TaskRequest):
             instruction=request.instruction,
             document_content=context.get("document", ""),
             client_data=context.get("client_data", {}),
+            explicit_agent=request.agent or "",   # ← pass UI-selected agent directly
         )
         print(f"[API] /run complete — status: {result.get('status')}")
         return {"success": True, "result": result}
