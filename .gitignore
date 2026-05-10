@@ -1,0 +1,58 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+venv/
+venv312/
+env/
+ENV/
+.venv/
+
+# Large sanctions data files (auto-downloaded via scripts/download_data.py)
+data/sanctions/
+
+# ChromaDB
+chroma_db/
+
+# Gmail OAuth tokens (sensitive)
+token.json
+credentials.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
