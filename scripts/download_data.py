@@ -297,6 +297,16 @@ def print_summary(results: dict):
     print(sep + "\n")
 
 
+def download_sanctions_data():
+    """Download only OFAC + UK sanctions files. Called from main.py startup on cloud deployments."""
+    sanctions_items = [d for d in DOWNLOADS if d["dest"].parent == SANCTIONS_DIR]
+    for item in sanctions_items:
+        for url in item["urls"]:
+            if download_file(url, item["dest"], item["label"]):
+                break
+            time.sleep(1)
+
+
 if __name__ == "__main__":
     logger.info("OmniForce compliance dataset downloader starting...")
     results = run_downloads()
