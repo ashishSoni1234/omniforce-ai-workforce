@@ -1,16 +1,4 @@
-from sentence_transformers import SentenceTransformer
-from rag.ingest import initialize_chroma, EMBED_MODEL
-
-_embedder = None
-
-
-def _get_embedder() -> SentenceTransformer:
-    global _embedder
-    if _embedder is None:
-        print(f"[RAG Retriever] Loading embedding model: {EMBED_MODEL}")
-        _embedder = SentenceTransformer(EMBED_MODEL)
-        print("[RAG Retriever] Embedding model ready")
-    return _embedder
+from rag.ingest import initialize_chroma, _get_embedder
 
 
 def retrieve_context(query: str, n_results: int = 3) -> str:
@@ -23,7 +11,8 @@ def retrieve_context(query: str, n_results: int = 3) -> str:
             return ""
 
         embedder = _get_embedder()
-        query_embedding = embedder.encode([query]).tolist()
+        # Use cloud API for single query
+        query_embedding = [embedder.embed_query(query)]
 
         actual_n = min(n_results, collection.count())
         results = collection.query(

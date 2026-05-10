@@ -10,9 +10,10 @@ so the KYC agent always has some context to work with.
 
 import logging
 from pathlib import Path
+import os
 
 import chromadb
-from sentence_transformers import SentenceTransformer
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +28,12 @@ _embedder = None
 _chroma_collection = None
 
 
-def _get_embedder() -> SentenceTransformer:
+def _get_embedder():
     global _embedder
     if _embedder is None:
-        logger.info("[RAG] Loading embedding model: %s", EMBED_MODEL)
-        _embedder = SentenceTransformer(EMBED_MODEL)
-        logger.info("[RAG] Embedding model loaded")
+        logger.info("[RAG] Initialising HuggingFace Cloud Embedder API: %s", EMBED_MODEL)
+        _embedder = HuggingFaceEndpointEmbeddings(model=EMBED_MODEL)
+        logger.info("[RAG] Cloud Embedding API ready")
     return _embedder
 
 
@@ -160,7 +161,8 @@ def ingest_text(text: str, doc_id: str, metadata: dict) -> bool:
         chunks = _chunk_text(text)
 
         chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
-        embeddings = embedder.encode(chunks).tolist()
+        # Call the cloud API to embed the chunks
+        embeddings = embedder.embed_documents(chunks)
         chunk_metadata = [{**metadata, "doc_id": doc_id, "chunk_index": i} for i in range(len(chunks))]
 
         collection.upsert(

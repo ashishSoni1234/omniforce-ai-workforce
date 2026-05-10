@@ -4,7 +4,7 @@ langchain==0.3.7
 langchain-groq==0.2.1
 langchain-community==0.3.7
 chromadb==0.5.18
-sentence-transformers==3.3.1
+langchain-huggingface==0.1.2
 pyairtable==2.3.3
 google-api-python-client==2.154.0
 google-auth-httplib2==0.2.0
