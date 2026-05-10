@@ -12,6 +12,7 @@ google-auth-oauthlib==1.2.1
 slack-sdk==3.33.3
 fastapi==0.115.5
 uvicorn==0.32.1
+python-multipart==0.0.12
 streamlit==1.40.1
 python-dotenv==1.0.1
 httpx==0.27.2
