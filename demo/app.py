@@ -1,8 +1,9 @@
+import os
 import streamlit as st
 import requests
 import json
 
-API_BASE = "http://localhost:8000"
+API_BASE = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
 
 st.set_page_config(
     page_title="OmniForce AI Workforce",
@@ -55,7 +56,7 @@ def post_to_api(payload: dict) -> dict | None:
         response.raise_for_status()
         return response.json()
     except requests.exceptions.ConnectionError:
-        st.error("Cannot connect to OmniForce API. Make sure the backend is running: `uvicorn main:app --reload --port 8000`")
+        st.error(f"Cannot connect to OmniForce API at {API_BASE}. Check BACKEND_URL environment variable.")
         return None
     except requests.exceptions.Timeout:
         st.error("Request timed out. The agent may still be processing — check the backend logs.")
