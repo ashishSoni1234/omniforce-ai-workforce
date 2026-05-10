@@ -11,6 +11,7 @@ Powered by Llama 3.3 70B (Groq), LangGraph, ChromaDB, and real integrations with
 
 ---
 
+> **Visual Demo Walkthrough:** [DEMO.md](./DEMO.md)
 > **Full technical documentation:** [DOCUMENTATION.md](./DOCUMENTATION.md)
 
 ---
@@ -207,7 +208,7 @@ python test_kyc_agent.py
 | LLM | Llama 3.3 70B via Groq API |
 | Orchestration | LangGraph StateGraph |
 | Vector DB | ChromaDB (local persistent) |
-| Embeddings | sentence-transformers/all-MiniLM-L6-v2 |
+| Embeddings | Hugging Face Inference API (langchain-huggingface) |
 | Sanctions | OFAC SDN XML + UK HM Treasury CSV (local) |
 | AML Risk | FATF Lists + Basel AML Index (embedded) |
 | Document OCR | Mindee API |
