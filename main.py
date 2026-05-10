@@ -1,4 +1,6 @@
 import io
+import threading
+import os
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from models.schemas import TaskRequest
@@ -19,45 +21,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_initialized = threading.Event()
+_init_error: str = ""
+
+
+def _background_init():
+    global _init_error
+    try:
+        print("[OmniForce] Background init starting...")
+
+        ofac_path = os.path.join("data", "sanctions", "ofac_sdn.xml")
+        uk_path = os.path.join("data", "sanctions", "uk_sanctions.csv")
+        if not os.path.exists(ofac_path) or not os.path.exists(uk_path):
+            print("[OmniForce] Sanctions data missing — downloading now...")
+            try:
+                from scripts.download_data import download_sanctions_data
+                download_sanctions_data()
+                print("[OmniForce] Sanctions data downloaded")
+            except Exception as e:
+                print(f"[OmniForce] Sanctions download warning (non-critical): {e}")
+
+        try:
+            collection = initialize_chroma()
+            if collection.count() == 0:
+                print("[OmniForce] Collection empty - ingesting compliance documents...")
+                count = ingest_sample_compliance_docs()
+                print(f"[OmniForce] Compliance docs ingested: {count} documents")
+            else:
+                print(f"[OmniForce] ChromaDB ready: {collection.count()} chunks loaded")
+        except Exception as e:
+            print(f"[OmniForce] ChromaDB warning (non-critical): {e}")
+
+        try:
+            from tools.sanctions_tool import _load_ofac_cache, _load_uk_cache
+            _load_ofac_cache()
+            _load_uk_cache()
+            print("[OmniForce] Sanctions data preloaded")
+        except Exception as e:
+            print(f"[OmniForce] Sanctions preload warning (non-critical): {e}")
+
+        print("[OmniForce] Background init complete")
+    except Exception as e:
+        _init_error = str(e)
+        print(f"[OmniForce] Background init error: {e}")
+    finally:
+        _initialized.set()
+
 
 @app.on_event("startup")
 async def startup():
-    import asyncio
-    import os
     print("[OmniForce] AI Workforce starting up...")
-
-    # Auto-download sanctions data if missing (needed on Railway/cloud deployments)
-    ofac_path = os.path.join("data", "sanctions", "ofac_sdn.xml")
-    uk_path = os.path.join("data", "sanctions", "uk_sanctions.csv")
-    if not os.path.exists(ofac_path) or not os.path.exists(uk_path):
-        print("[OmniForce] Sanctions data missing — downloading now...")
-        try:
-            from scripts.download_data import download_sanctions_data
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, download_sanctions_data)
-            print("[OmniForce] Sanctions data downloaded")
-        except Exception as e:
-            print(f"[OmniForce] Sanctions download warning (non-critical): {str(e)}")
-    try:
-        collection = initialize_chroma()
-        if collection.count() == 0:
-            print("[OmniForce] Collection empty - ingesting compliance documents...")
-            count = ingest_sample_compliance_docs()
-            print(f"[OmniForce] Compliance docs ingested: {count} documents")
-        else:
-            print(f"[OmniForce] ChromaDB ready: {collection.count()} chunks loaded")
-    except Exception as e:
-        print(f"[OmniForce] Startup warning (non-critical): {str(e)}")
-
-    # Preload sanctions data so first KYC request is not slow
-    try:
-        from tools.sanctions_tool import _load_ofac_cache, _load_uk_cache
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _load_ofac_cache)
-        await loop.run_in_executor(None, _load_uk_cache)
-        print("[OmniForce] Sanctions data preloaded")
-    except Exception as e:
-        print(f"[OmniForce] Sanctions preload warning (non-critical): {str(e)}")
+    t = threading.Thread(target=_background_init, daemon=True)
+    t.start()
 
 
 @app.get("/")
@@ -73,6 +88,15 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+
+
+@app.get("/ready")
+def ready():
+    if _initialized.is_set():
+        if _init_error:
+            return {"status": "degraded", "error": _init_error}
+        return {"status": "ready"}
+    return {"status": "initializing"}
 
 
 @app.post("/run")
