@@ -1,10 +1,8 @@
 import os
 import streamlit as st
 import requests
-import json
 
 API_BASE = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
-
 
 st.set_page_config(
     page_title="OmniForce AI Workforce",
@@ -13,9 +11,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.title("🤖 OmniForce AI Workforce")
-st.caption("Autonomous AI agents for financial services — powered by Llama 3.1 70B")
+# ── Session state initialisation ──────────────────────────────────────────────
+for key in ("sales_result", "ops_result", "kyc_result", "leads"):
+    if key not in st.session_state:
+        st.session_state[key] = None
 
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("⚡ Agent Control Panel")
     agent_choice = st.radio(
@@ -23,9 +24,7 @@ with st.sidebar:
         ["Sales Agent", "Ops Agent", "KYC Agent"],
         index=0,
     )
-
     st.divider()
-
     if agent_choice == "Sales Agent":
         st.info(
             "**Sales Agent**\n\n"
@@ -44,12 +43,16 @@ with st.sidebar:
             "Handles Know Your Customer compliance: verifies documents against regulatory "
             "requirements, assesses client risk, and manages onboarding workflows."
         )
-
     st.divider()
     st.caption("Backend: FastAPI + LangGraph")
-    st.caption("LLM: Llama 3.1 70B via Groq")
+    st.caption("LLM: Llama 3.3 70B via Groq")
     st.caption("RAG: ChromaDB + MiniLM-L6-v2")
 
+st.title("🤖 OmniForce AI Workforce")
+st.caption("Autonomous AI agents for financial services — powered by Llama 3.3 70B")
+
+
+# ── API helpers ───────────────────────────────────────────────────────────────
 
 def post_to_api(payload: dict) -> dict | None:
     try:
@@ -60,7 +63,7 @@ def post_to_api(payload: dict) -> dict | None:
         st.error(f"Cannot connect to OmniForce API at {API_BASE}. Check BACKEND_URL environment variable.")
         return None
     except requests.exceptions.Timeout:
-        st.error("Request timed out. The agent may still be processing — check the backend logs.")
+        st.error("Request timed out (120s). The agent may still be processing — check the backend logs.")
         return None
     except requests.exceptions.HTTPError as e:
         st.error(f"API error {e.response.status_code}: {e.response.text}")
@@ -69,6 +72,8 @@ def post_to_api(payload: dict) -> dict | None:
         st.error(f"Unexpected error: {str(e)}")
         return None
 
+
+# ── Result renderer ───────────────────────────────────────────────────────────
 
 def render_result(result_data: dict):
     if result_data is None:
@@ -90,69 +95,72 @@ def render_result(result_data: dict):
     with col1:
         st.metric("Agent Used", agent_used.upper())
     with col2:
-        color = "green" if status == "complete" else "orange" if status == "pending_documents" else "red"
         st.metric("Status", status)
 
     if error:
         st.error(f"Error: {error}")
         return
 
-    if agent_result:
-        with st.expander("Full Result (JSON)", expanded=True):
-            st.json(agent_result)
+    if not agent_result:
+        return
 
-        if "summary" in agent_result:
-            st.subheader("Summary")
-            st.write(agent_result["summary"])
+    with st.expander("Full Result (JSON)", expanded=True):
+        st.json(agent_result)
 
-        if "response" in agent_result:
-            st.subheader("Agent Response")
-            st.write(agent_result["response"])
+    if "summary" in agent_result:
+        st.subheader("Summary")
+        st.write(agent_result["summary"])
 
-        if "report" in agent_result:
-            st.subheader("Generated Report")
-            st.write(agent_result["report"])
+    if "response" in agent_result:
+        st.subheader("Agent Response")
+        st.write(agent_result["response"])
 
-        if "email_drafted" in agent_result:
-            st.subheader("Drafted Email")
-            st.code(agent_result["email_drafted"], language="text")
+    if "report" in agent_result:
+        st.subheader("Generated Report")
+        st.write(agent_result["report"])
 
-        if "leads_added" in agent_result:
-            st.success(f"✅ {agent_result['leads_added']} leads added to CRM")
-            if "companies" in agent_result:
-                st.write("Companies found:")
-                for company in agent_result["companies"]:
-                    st.write(company)
+    if "email_drafted" in agent_result:
+        st.subheader("Drafted Email")
+        st.code(agent_result["email_drafted"], language="text")
 
-        if "risk_level" in agent_result:
-            risk = agent_result["risk_level"]
-            if risk == "Low":
-                st.success(f"✅ Risk Level: {risk}")
-            elif risk == "Medium":
-                st.warning(f"⚠️ Risk Level: {risk}")
-            else:
-                st.error(f"🚨 Risk Level: {risk}")
+    if "leads_added" in agent_result:
+        st.success(f"✅ {agent_result['leads_added']} leads added to CRM")
+        if "companies" in agent_result:
+            st.write("Companies found:")
+            for company in agent_result["companies"]:
+                st.write(company)
 
-        if "missing_docs" in agent_result:
-            missing = agent_result.get("missing_docs", [])
-            if missing:
-                st.warning(f"Missing Documents: {', '.join(missing)}")
-            else:
-                st.success("All required documents provided")
+    if "risk_level" in agent_result:
+        risk = agent_result["risk_level"]
+        if risk == "Low":
+            st.success(f"✅ Risk Level: {risk}")
+        elif risk == "Medium":
+            st.warning(f"⚠️ Risk Level: {risk}")
+        else:
+            st.error(f"🚨 Risk Level: {risk}")
 
-        if "routing_decision" in agent_result:
-            routing = agent_result["routing_decision"]
-            st.subheader("Approval Routing Decision")
-            level = routing.get("approval_level", "Unknown")
-            if level == "Low":
-                st.success(f"✅ {level} — {routing.get('approver', '')}")
-            elif level == "Medium":
-                st.warning(f"⚠️ {level} — {routing.get('approver', '')}")
-            else:
-                st.error(f"🚨 {level} — {routing.get('approver', '')}")
-            if routing.get("reason"):
-                st.write(f"Reason: {routing['reason']}")
+    if "missing_docs" in agent_result:
+        missing = agent_result.get("missing_docs", [])
+        if missing:
+            st.warning(f"Missing Documents: {', '.join(missing)}")
+        else:
+            st.success("All required documents provided")
 
+    if "routing_decision" in agent_result:
+        routing = agent_result["routing_decision"]
+        st.subheader("Approval Routing Decision")
+        level = routing.get("approval_level", "Unknown")
+        if level == "Low":
+            st.success(f"✅ {level} — {routing.get('approver', '')}")
+        elif level == "Medium":
+            st.warning(f"⚠️ {level} — {routing.get('approver', '')}")
+        else:
+            st.error(f"🚨 {level} — {routing.get('approver', '')}")
+        if routing.get("reason"):
+            st.write(f"Reason: {routing['reason']}")
+
+
+# ── Sales Agent tab ───────────────────────────────────────────────────────────
 
 if agent_choice == "Sales Agent":
     st.header("🎯 Sales Agent")
@@ -169,13 +177,18 @@ if agent_choice == "Sales Agent":
             st.warning("Please enter an instruction before running the agent.")
         else:
             with st.spinner("Sales Agent working..."):
-                payload = {
-                    "agent": "sales",
-                    "instruction": instruction,
-                    "context": {},
-                }
+                payload = {"agent": "sales", "instruction": instruction, "context": {}}
                 result = post_to_api(payload)
-                render_result(result)
+                if result:
+                    st.session_state.sales_result = result
+
+    if st.session_state.sales_result:
+        st.divider()
+        st.subheader("Last Result")
+        render_result(st.session_state.sales_result)
+
+
+# ── Ops Agent tab ─────────────────────────────────────────────────────────────
 
 elif agent_choice == "Ops Agent":
     st.header("⚙️ Ops Agent")
@@ -215,7 +228,15 @@ elif agent_choice == "Ops Agent":
                     response = requests.post(f"{API_BASE}/upload-invoice", files=files, data=data, timeout=60)
                     response.raise_for_status()
                     resp_json = response.json()
-                    render_result({"success": resp_json.get("success"), "result": {"agent_used": "ops", "status": resp_json.get("result", {}).get("status"), "result": resp_json.get("result", {})}})
+                    result = {
+                        "success": resp_json.get("success"),
+                        "result": {
+                            "agent_used": "ops",
+                            "status": resp_json.get("result", {}).get("status"),
+                            "result": resp_json.get("result", {}),
+                        },
+                    }
+                    st.session_state.ops_result = result
                 except requests.exceptions.ConnectionError:
                     st.error("Cannot connect to OmniForce API. Make sure the backend is running.")
                 except Exception as e:
@@ -228,7 +249,16 @@ elif agent_choice == "Ops Agent":
                     "context": {"document": document_content},
                 }
                 result = post_to_api(payload)
-                render_result(result)
+                if result:
+                    st.session_state.ops_result = result
+
+    if st.session_state.ops_result:
+        st.divider()
+        st.subheader("Last Result")
+        render_result(st.session_state.ops_result)
+
+
+# ── KYC Agent tab ─────────────────────────────────────────────────────────────
 
 else:
     st.header("🔍 KYC Agent")
@@ -263,49 +293,65 @@ else:
                     "email": client_email,
                     "documents": documents_provided,
                 }
-                payload = {
-                    "agent": "kyc",
-                    "instruction": instruction,
-                    "context": {"client_data": client_data},
-                }
+                payload = {"agent": "kyc", "instruction": instruction, "context": {"client_data": client_data}}
                 result = post_to_api(payload)
-                render_result(result)
+                if result:
+                    st.session_state.kyc_result = result
+
+    if st.session_state.kyc_result:
+        st.divider()
+        st.subheader("Last Result")
+        render_result(st.session_state.kyc_result)
+
+
+# ── Leads / CRM section ───────────────────────────────────────────────────────
 
 st.divider()
 st.subheader("📊 Current Leads in CRM")
 
-if st.button("🔄 Fetch Leads from CRM", key="fetch_leads"):
+col_btn, col_clear = st.columns([1, 5])
+with col_btn:
+    fetch_clicked = st.button("🔄 Fetch Leads", key="fetch_leads")
+with col_clear:
+    if st.button("🗑️ Clear", key="clear_leads"):
+        st.session_state.leads = None
+
+if fetch_clicked:
     with st.spinner("Fetching leads from Airtable..."):
         try:
             response = requests.get(f"{API_BASE}/leads", timeout=15)
             response.raise_for_status()
             data = response.json()
-            leads = data.get("leads", [])
-
-            if leads:
-                st.success(f"Found {len(leads)} leads in CRM")
-                display_leads = []
-                for lead in leads:
-                    display_leads.append(
-                        {
-                            "Company": lead.get("Company Name", lead.get("company_name", "N/A")),
-                            "Industry": lead.get("Industry", lead.get("industry", "N/A")),
-                            "Revenue": lead.get("Revenue Range", lead.get("revenue_range", "N/A")),
-                            "Location": lead.get("Location", lead.get("location", "N/A")),
-                            "Status": lead.get("Status", lead.get("status", "N/A")),
-                            "Email": lead.get("Contact Email", lead.get("contact_email", "")),
-                        }
-                    )
-                st.dataframe(display_leads, use_container_width=True)
-            else:
-                st.info("No leads found in CRM. Run the Sales Agent to add leads.")
-
+            st.session_state.leads = data.get("leads", [])
         except requests.exceptions.ConnectionError:
             st.error("Cannot connect to API. Ensure the backend is running.")
         except requests.exceptions.HTTPError as e:
             st.error(f"API error: {e.response.status_code} — {e.response.text}")
         except Exception as e:
             st.error(f"Failed to fetch leads: {str(e)}")
+
+if st.session_state.leads is not None:
+    leads = st.session_state.leads
+    if not leads:
+        st.info("No leads found in CRM. Run the Sales Agent to add leads.")
+    else:
+        st.success(f"Found {len(leads)} leads in CRM")
+        display_leads = []
+        for lead in leads:
+            display_leads.append({
+                "Company": lead.get("Company Name") or lead.get("company_name") or "N/A",
+                "Industry": lead.get("Industry") or lead.get("industry") or "N/A",
+                "Revenue": lead.get("Revenue Range") or lead.get("revenue_range") or "N/A",
+                "Location": lead.get("Location") or lead.get("location") or "N/A",
+                "Status": lead.get("Status") or lead.get("status") or "N/A",
+                "Email": lead.get("Contact Email") or lead.get("contact_email") or "",
+                "Founded": lead.get("Founded Year") or lead.get("founded_year") or "",
+                "Founders": lead.get("Founders") or lead.get("founders") or "",
+                "Stage": lead.get("Funding Stage") or lead.get("funding_stage") or "",
+                "Website": lead.get("Website URL") or lead.get("website_url") or "",
+                "LinkedIn": lead.get("LinkedIn URL") or lead.get("linkedin_url") or "",
+            })
+        st.dataframe(display_leads, use_container_width=True)
 
 st.divider()
 st.caption("OmniForce AI Workforce v1.0.0 | Built with LangGraph + Groq + ChromaDB")
