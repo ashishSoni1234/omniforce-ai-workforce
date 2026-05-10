@@ -52,14 +52,6 @@ def _background_init():
         except Exception as e:
             print(f"[OmniForce] ChromaDB warning (non-critical): {e}")
 
-        try:
-            from tools.sanctions_tool import _load_ofac_cache, _load_uk_cache
-            _load_ofac_cache()
-            _load_uk_cache()
-            print("[OmniForce] Sanctions data preloaded")
-        except Exception as e:
-            print(f"[OmniForce] Sanctions preload warning (non-critical): {e}")
-
         print("[OmniForce] Background init complete")
     except Exception as e:
         _init_error = str(e)
