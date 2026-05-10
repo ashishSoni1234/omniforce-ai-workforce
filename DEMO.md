@@ -7,9 +7,6 @@ Welcome to the **OmniForce AI Workforce** demo! Below is a visual walkthrough of
 ## 🎯 1. Sales Agent (CRM Automation)
 The Sales Agent is responsible for autonomous lead generation. It fetches targeted leads from the web based on specific queries, parses their data, and injects them directly into the Airtable CRM system.
 
-![Sales Agent Instruction](images/Screenshot%202026-05-11%20025251.png)
-*Entering instructions to find targeted fintech companies in London.*
-
 ![Sales Agent Output](images/Screenshot%202026-05-11%20025259.png)
 *Agent successfully parses the web and identifies 5 qualified leads.*
 
@@ -18,6 +15,9 @@ The Sales Agent is responsible for autonomous lead generation. It fetches target
 
 ![Sales CRM Dashboard](images/Screenshot%202026-05-11%20025314.png)
 *Dashboard view confirming the leads are properly mapped to the correct columns (Revenue, Founded, Stage).*
+
+![Sales Agent Instruction](images/Screenshot%202026-05-11%20025251.png)
+*The custom instruction prompt that was used to trigger this autonomous lead generation.*
 
 ---
 
