@@ -2,6 +2,5 @@
 builder = "nixpacks"
 
 [deploy]
-healthcheckPath = "/health"
-healthcheckTimeout = 300
+startCommand = "bash start.sh"
 restartPolicyType = "on_failure"

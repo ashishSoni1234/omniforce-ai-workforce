@@ -5,6 +5,7 @@ import json
 
 API_BASE = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
 
+
 st.set_page_config(
     page_title="OmniForce AI Workforce",
     page_icon="🤖",
